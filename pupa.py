@@ -1,0 +1,3 @@
+#kokojambo mama mia
+sniper_pos_5 = True
+print("снайпер 5 это реальная тема?", "\n", sniper_pos_5, '\nВопросы?' )
