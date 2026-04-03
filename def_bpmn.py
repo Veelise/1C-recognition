@@ -6,7 +6,9 @@ import io
 import easyocr
 import numpy as np
 import os
-
+import cv2
+import numpy as np
+import math
 
 # Инициализация EasyOCR (один раз!)
 reader = easyocr.Reader(['ru', 'en'], gpu=False)
@@ -113,6 +115,44 @@ def load_pdf_with_buttons():
         scale[0] = max(scale[0]/1.2, 0.2)
         render_page()
     
+    
+    
+    def preprocess_for_ocr(pil_image):
+        img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Лёгкое улучшение контраста
+        gray = cv2.convertScaleAbs(gray, alpha=1.3, beta=10)
+
+        # 🔥 DESKEW НА GRAY
+        edges = cv2.Canny(gray, 50, 150)
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 100, minLineLength=100, maxLineGap=10)
+
+        if lines is not None:
+            angles = []
+            for line in lines[:10]:
+                x1, y1, x2, y2 = line[0]
+                angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+                if abs(angle) < 45:
+                    angles.append(angle)
+
+            if angles:
+                median_angle = np.median(angles)
+                if abs(median_angle) > 0.5:
+                    h, w = gray.shape
+                    M = cv2.getRotationMatrix2D((w//2, h//2), median_angle, 1.0)
+                    gray = cv2.warpAffine(gray, M, (w, h),
+                                        flags=cv2.INTER_CUBIC,
+                                        borderMode=cv2.BORDER_REPLICATE)
+
+        # 🔥 ПРОСТАЯ бинаризация (лучше для OCR)
+        _, thresh = cv2.threshold(gray, 0, 255,
+                                cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        return Image.fromarray(gray)
+    
+    
+    
     # ✅ НОВАЯ: OCR функция
     def perform_ocr():
         if not page_image[0]:
@@ -125,9 +165,20 @@ def load_pdf_with_buttons():
         
             # ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: PIL → numpy array
             import numpy as np
-            img_array = np.array(page_image[0])  # Конвертируем PIL в numpy
-        
-            results = reader.readtext(img_array, detail=1, paragraph=False)
+            pil_img = page_image[0]
+            processed_pil = preprocess_for_ocr(pil_img)
+            img_array = np.array(processed_pil)
+
+            results = reader.readtext(
+                img_array, 
+                detail=1, 
+                paragraph=False,
+                allowlist='АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789№-.,=абвгдежзийклмнопрстуфхцчшщъыьэюяКПЛИСТФм#', 
+                width_ths=0.8,    # Строже!
+                height_ths=0.8,   
+                low_text=0.3,     # Ниже порог
+                text_threshold=0.7
+            )
             extracted_text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
         
             # Окно с результатом
