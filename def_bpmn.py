@@ -5,10 +5,7 @@ from PIL import Image, ImageTk
 import io
 import easyocr
 import numpy as np
-import os
-import cv2
-import numpy as np
-import math
+from preprocessing import preprocess_for_ocr
 
 # Инициализация EasyOCR (один раз!)
 reader = easyocr.Reader(['ru', 'en'], gpu=False)
@@ -20,7 +17,7 @@ def load_pdf_with_buttons():
     root.state('zoomed')
     root.resizable(True, True)
     
-    pdf_path = [None]
+    pdf_path = [None] 
     doc = [None]
     current_page = [0]
     total_pages = [0]
@@ -117,104 +114,100 @@ def load_pdf_with_buttons():
     
     
     
-    def preprocess_for_ocr(pil_image):
-        img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        # Лёгкое улучшение контраста
-        gray = cv2.convertScaleAbs(gray, alpha=1.3, beta=10)
-
-        # 🔥 DESKEW НА GRAY
-        edges = cv2.Canny(gray, 50, 150)
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 100, minLineLength=100, maxLineGap=10)
-
-        if lines is not None:
-            angles = []
-            for line in lines[:10]:
-                x1, y1, x2, y2 = line[0]
-                angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
-                if abs(angle) < 45:
-                    angles.append(angle)
-
-            if angles:
-                median_angle = np.median(angles)
-                if abs(median_angle) > 0.5:
-                    h, w = gray.shape
-                    M = cv2.getRotationMatrix2D((w//2, h//2), median_angle, 1.0)
-                    gray = cv2.warpAffine(gray, M, (w, h),
-                                        flags=cv2.INTER_CUBIC,
-                                        borderMode=cv2.BORDER_REPLICATE)
-
-        # 🔥 ПРОСТАЯ бинаризация (лучше для OCR)
-        _, thresh = cv2.threshold(gray, 0, 255,
-                                cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        return Image.fromarray(gray)
-    
-    
-    
     # ✅ НОВАЯ: OCR функция
     def perform_ocr():
         if not page_image[0]:
             messagebox.showerror("Ошибка", "Нет изображения страницы!")
             return
-    
+        
         try:
             root.update()
-            messagebox.showinfo("OCR", "Распознавание... (30-60 сек)")
-        
-            # ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: PIL → numpy array
-            import numpy as np
-            pil_img = page_image[0]
-            processed_pil = preprocess_for_ocr(pil_img)
+            messagebox.showinfo("OCR", "Распознавание... (5-60 сек)")
+            
+            # 🔥 АВТОЗУМ: сохраняем текущий scale
+            original_scale = scale[0]
+            ocr_scale = 5.0  # Оптимально для EasyOCR
+            
+            # Если зум мал — рендерим на высоком разрешении
+            if original_scale < 2.8:
+                print(f"🔍 Автозум для OCR: {original_scale:.1f}x → {ocr_scale}x")
+                scale[0] = ocr_scale
+                render_page()  # Обновляем page_image на высоком зуме
+                root.update()
+            
+            # Предобработка
+            pil_img = page_image[0]  # Теперь высокое разрешение!
+            result = preprocess_for_ocr(
+                pil_img, 
+                page_num=current_page[0]+1,
+                save_files=True, 
+                debug=True
+            )
+            processed_pil = result['processed']
             img_array = np.array(processed_pil)
-
+            
+            # Статистика предобработки
+            print(f"📊 Deskew: {result['deskew_angle']:.2f}°, Линий: {result['lines_detected']}")
+            
+            # OCR
             results = reader.readtext(
                 img_array, 
                 detail=1, 
                 paragraph=False,
                 allowlist='АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789№-.,=абвгдежзийклмнопрстуфхцчшщъыьэюяКПЛИСТФм#', 
-                width_ths=0.8,    # Строже!
-                height_ths=0.8,   
-                low_text=0.3,     # Ниже порог
+                width_ths=0.8,
+                height_ths=0.8, 
+                low_text=0.3, 
                 text_threshold=0.7
             )
             extracted_text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
-        
+            
+            # 🔥 ВОЗВРАЩАЕМ ЗУМ НА МЕСТО (пользователь не заметит)
+            scale[0] = original_scale
+            render_page()
+            root.update()
+            
             # Окно с результатом
             text_window = tk.Toplevel(root)
             text_window.title(f"OCR: Страница {current_page[0]+1}")
             text_window.geometry("900x700")
-        
-            # Добавим статистику
+            
             stats = f"Всего найдено: {len(results)} объектов\n"
-            stats += f"Надёжных (>0.5): {len([r for r in results if r[2]>0.5])}\n\n"
+            stats += f"Надёжных (>0.5): {len([r for r in results if r[2]>0.5])}\n"
+            stats += f"📏 Зум OCR: {ocr_scale}x (DPI ~300)\n"
+            stats += f"🔄 Deskew: {result['deskew_angle']:.2f}°\n\n"
             stats += "РАСПОЗНАННЫЙ ТЕКСТ:\n"
             stats += "="*50 + "\n"
-        
+            
             text_area = tk.Text(text_window, wrap=tk.WORD, font=('Consolas', 10))
             full_text = stats + extracted_text
             text_area.insert(tk.END, full_text)
             text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Копируем в буфер обмена
+            
+            # Копируем/сохраняем (без изменений)
             root.clipboard_clear()
             root.clipboard_append(extracted_text)
-        
-        # Сохранить
             filename = f"ocr_page_{current_page[0]+1}.txt"
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(extracted_text)
-        
+            
             messagebox.showinfo("✅ Готово!", 
-                          f"📄 Найдено {len(results)} объектов\n"
-                          f"💾 Сохранено: {filename}\n"
-                          f"📋 Текст в буфере обмена")
-        
+                f"📄 Найдено {len(results)} объектов\n"
+                f"💾 Сохранено: {filename}\n"
+                f"📋 Текст в буфере\n"
+                f"📏 Автозум: {ocr_scale}x")
+            
             print(f"OCR: {len([r for r in results if r[2]>0.5])} строк с conf>0.5")
-        
+            
         except Exception as e:
-            messagebox.showerror("Ошибка OCR", f"{str(e)}\n\nУстановите: pip install numpy")
+            messagebox.showerror("Ошибка OCR", f"{str(e)}")
+            # Восстанавливаем зум при ошибке
+            try:
+                scale[0] = original_scale
+                render_page()
+                root.update()
+            except:
+                pass
     
     # select_file
     def select_file():
