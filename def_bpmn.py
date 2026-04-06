@@ -6,9 +6,11 @@ import io
 import easyocr
 import numpy as np
 from preprocessing import preprocess_for_ocr
+import os
 
 # Инициализация EasyOCR (один раз!)
 reader = easyocr.Reader(['ru', 'en'], gpu=False)
+
 
 def load_pdf_with_buttons():
     root = tk.Tk()
@@ -16,6 +18,7 @@ def load_pdf_with_buttons():
     root.geometry("2560x1440")
     root.state('zoomed')
     root.resizable(True, True)
+    
     
     pdf_path = [None] 
     doc = [None]
@@ -46,6 +49,22 @@ def load_pdf_with_buttons():
     
     page_spin = tk.Spinbox(root, from_=1, to=1, width=5, font=('Arial', 12))
     page_spin.pack(side=tk.LEFT, padx=10)
+    tk.Label(root, text="№ Чертежа:", font=('Arial', 12)).pack(side=tk.LEFT, padx=10)
+    # 🔥 1. СОЗДАЁМ → 2. НАСТРАИВАЕМ → 3. pack()
+    drawing_num_entry = tk.Entry(root, width=15, font=('Arial', 12))
+    drawing_num_entry.insert(0, "1")
+    drawing_num_entry.pack(side=tk.LEFT, padx=5)
+    drawing_num_entry.focus_set() 
+    
+    
+    def ensure_drawing_dirs(drawing_num):
+        """Создаёт drawing_XXX/ + подпапки"""
+        main_dir = f"drawing_{drawing_num}"
+        subdirs = ['temp_pages', 'cleared_pages', 'ocr_pages']
+        for subdir in subdirs:
+            os.makedirs(os.path.join(main_dir, subdir), exist_ok=True)
+        print(f"📁 Создана структура: drawing_{drawing_num}/...")
+        return main_dir
     
     # ✅ ИСПРАВЛЕННАЯ render_page
     def render_page():
@@ -114,100 +133,104 @@ def load_pdf_with_buttons():
     
     
     
-    # ✅ НОВАЯ: OCR функция
+    # ✅ OCR функция
     def perform_ocr():
         if not page_image[0]:
             messagebox.showerror("Ошибка", "Нет изображения страницы!")
             return
         
         try:
+            # 🔥 1. НОМЕР ЧЕРТЕЖА + ПАПКИ (ПЕРВЫМ ДЕЛОМ)
+            drawing_num = drawing_num_entry.get().strip()
+            if not drawing_num:
+                drawing_num = "unnamed"
+            main_dir = ensure_drawing_dirs(drawing_num)
+            page_num = current_page[0] + 1
+            
             root.update()
             messagebox.showinfo("OCR", "Распознавание... (5-60 сек)")
             
-            # 🔥 АВТОЗУМ: сохраняем текущий scale
+            # 🔥 2. АВТОЗУМ (если нужно)
             original_scale = scale[0]
-            ocr_scale = 5.0  # Оптимально для EasyOCR
+            ocr_scale = 5.0
+            high_res_rendered = False
             
-            # Если зум мал — рендерим на высоком разрешении
-            if original_scale < 2.8:
-                print(f"🔍 Автозум для OCR: {original_scale:.1f}x → {ocr_scale}x")
+            if original_scale < 3.8:
+                print(f"🔍 Автозум: {original_scale:.1f}x → {ocr_scale}x")
                 scale[0] = ocr_scale
-                render_page()  # Обновляем page_image на высоком зуме
+                render_page()  # page_image теперь высокого разрешения
                 root.update()
+                high_res_rendered = True
             
-            # Предобработка
-            pil_img = page_image[0]  # Теперь высокое разрешение!
+            # 🔥 3. ПРЕДОБРАБОТКА
+            pil_img = page_image[0]  # Высокое или текущее разрешение
             result = preprocess_for_ocr(
                 pil_img, 
-                page_num=current_page[0]+1,
-                save_files=True, 
-                debug=True
+                page_num=page_num,
+                save_files=False  # НЕ сохраняем в preprocessing!
             )
+            
+            # 🔥 4. СОХРАНЕНИЕ В ПАПКИ (result содержит PIL Image, НЕ список!)
+            temp_path = os.path.join(main_dir, 'temp_pages', f'temp_page_{page_num}.jpg')
+            cleared_path = os.path.join(main_dir, 'cleared_pages', f'cleared_page_{page_num}.jpg')
+            result['temp'].save(temp_path)      # PIL Image
+            result['processed'].save(cleared_path)
+            
+            print(f"✅ {main_dir}/temp_pages/temp_page_{page_num}.jpg")
+            print(f"✅ {main_dir}/cleared_pages/cleared_page_{page_num}.jpg")
+            
+            # 🔥 5. OCR
             processed_pil = result['processed']
             img_array = np.array(processed_pil)
-            
-            # Статистика предобработки
             print(f"📊 Deskew: {result['deskew_angle']:.2f}°, Линий: {result['lines_detected']}")
             
-            # OCR
             results = reader.readtext(
                 img_array, 
-                detail=1, 
-                paragraph=False,
+                detail=1, paragraph=False,
                 allowlist='АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789№-.,=абвгдежзийклмнопрстуфхцчшщъыьэюяКПЛИСТФм#', 
-                width_ths=0.8,
-                height_ths=0.8, 
-                low_text=0.3, 
-                text_threshold=0.7
+                width_ths=0.8, height_ths=0.8, low_text=0.3, text_threshold=0.7
             )
             extracted_text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
             
-            # 🔥 ВОЗВРАЩАЕМ ЗУМ НА МЕСТО (пользователь не заметит)
-            scale[0] = original_scale
-            render_page()
-            root.update()
-            
-            # Окно с результатом
-            text_window = tk.Toplevel(root)
-            text_window.title(f"OCR: Страница {current_page[0]+1}")
-            text_window.geometry("900x700")
-            
-            stats = f"Всего найдено: {len(results)} объектов\n"
-            stats += f"Надёжных (>0.5): {len([r for r in results if r[2]>0.5])}\n"
-            stats += f"📏 Зум OCR: {ocr_scale}x (DPI ~300)\n"
-            stats += f"🔄 Deskew: {result['deskew_angle']:.2f}°\n\n"
-            stats += "РАСПОЗНАННЫЙ ТЕКСТ:\n"
-            stats += "="*50 + "\n"
-            
-            text_area = tk.Text(text_window, wrap=tk.WORD, font=('Consolas', 10))
-            full_text = stats + extracted_text
-            text_area.insert(tk.END, full_text)
-            text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-            
-            # Копируем/сохраняем (без изменений)
-            root.clipboard_clear()
-            root.clipboard_append(extracted_text)
-            filename = f"ocr_page_{current_page[0]+1}.txt"
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write(extracted_text)
-            
-            messagebox.showinfo("✅ Готово!", 
-                f"📄 Найдено {len(results)} объектов\n"
-                f"💾 Сохранено: {filename}\n"
-                f"📋 Текст в буфере\n"
-                f"📏 Автозум: {ocr_scale}x")
-            
-            print(f"OCR: {len([r for r in results if r[2]>0.5])} строк с conf>0.5")
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка OCR", f"{str(e)}")
-            # Восстанавливаем зум при ошибке
-            try:
+            # 🔥 6. ВОЗВРАТ ЗУМА
+            if high_res_rendered:
                 scale[0] = original_scale
                 render_page()
                 root.update()
-            except:
-                pass
+            
+            # 🔥 7. СОХРАНЕНИЕ TXT
+            ocr_path = os.path.join(main_dir, 'ocr_pages', f'ocr_page_{page_num}.txt')
+            with open(ocr_path, "w", encoding="utf-8") as f:
+                f.write(extracted_text)
+            
+            # Окно результатов
+            text_window = tk.Toplevel(root)
+            text_window.title(f"OCR: drawing_{drawing_num} стр.{page_num}")
+            text_window.geometry("900x700")
+            
+            stats = f"📁 drawing_{drawing_num}/\n"
+            stats += f"Всего: {len(results)} | Надёж >0.5: {len([r for r in results if r[2]>0.5])}\n"
+            stats += f"📏 Зум: {ocr_scale if high_res_rendered else original_scale:.1f}x\n"
+            stats += f"🔄 Deskew: {result['deskew_angle']:.2f}°\n\n"
+            stats += "ТЕКСТ:\n" + "="*50 + "\n"
+            
+            text_area = tk.Text(text_window, wrap=tk.WORD, font=('Consolas', 10))
+            text_area.insert(tk.END, stats + extracted_text)
+            text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Буфер + сообщение
+            root.clipboard_clear()
+            root.clipboard_append(extracted_text)
+            messagebox.showinfo("✅ Готово!", 
+                f"📁 drawing_{drawing_num}/\n"
+                f"📄 {len(results)} объектов\n"
+                f"💾 temp_pages/ | cleared_pages/ | ocr_pages/\n"
+                f"📋 В буфере")
+            
+            print(f"OCR: {len([r for r in results if r[2]>0.5])} строк conf>0.5")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка OCR", str(e))
     
     # select_file
     def select_file():
@@ -224,6 +247,9 @@ def load_pdf_with_buttons():
             page_spin.config(from_=1, to=total_pages[0])
             update_spinbox()
             render_page()
+            drawing_num_entry.focus_set()
+            drawing_num_entry.select_range(0, tk.END)  # Выделить текст
+            root.update()  # Принудительно обновить GUI
     
     # Кнопки управления
     buttons_frame = tk.Frame(root)
@@ -233,16 +259,9 @@ def load_pdf_with_buttons():
     tk.Button(buttons_frame, text="+", command=zoom_in, width=3).pack(side=tk.LEFT, padx=5)
     tk.Button(buttons_frame, text="Изменить", command=select_file, bg="orange").pack(side=tk.LEFT, padx=10)
     
-    # ✅ НОВАЯ КНОПКА OCR
+    # ✅ КНОПКА OCR
     tk.Button(buttons_frame, text="🔍 OCR", command=perform_ocr, bg="blue", fg="white", width=8).pack(side=tk.LEFT, padx=10)
     
-    def confirm_load():
-        if pdf_path[0]:
-            root.quit()
-        else:
-            messagebox.showwarning("Предупреждение", "Выберите файл!")
-    
-    tk.Button(buttons_frame, text="Загрузить", command=confirm_load, bg="green", fg="white").pack(side=tk.LEFT, padx=10)
     tk.Button(buttons_frame, text="Отмена", command=root.quit, bg="red", fg="white").pack(side=tk.LEFT, padx=10)
     
     # Биндинги зума
@@ -251,7 +270,6 @@ def load_pdf_with_buttons():
     canvas.bind("<Button-5>", lambda e: zoom({"delta": -120}))
     
     # Старт
-    select_file()
     root.mainloop()
     if doc[0]:
         doc[0].close()
