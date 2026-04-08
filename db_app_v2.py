@@ -29,7 +29,7 @@ INSERT_EMPLOYEE = "INSERT INTO EMPLOYEES (Post, FullName, Role) VALUES (%s, %s, 
 INSERT_SKETCH_DRAWING = "INSERT INTO SKETCH_DRAWINGS (SFilePath, DateAdded, NumName, idEmployee) VALUES (%s, %s, %s, %s) RETURNING idSkDrav"
 INSERT_PRIMARY_DRAWING = "INSERT INTO PRIMARY_DRAWINGS (FilePath, AssociatedWith, NeedToImprove, idEmployee) VALUES (%s, %s, %s, %s) RETURNING id"
 
-GET_PRIMARY_DRAWINGS = "SELECT id, FilePath, AssociatedWith, NeedToImprove, idEmployee, created_at FROM PRIMARY_DRAWINGS ORDER BY id DESC"
+GET_PRIMARY_DRAWINGS = "SELECT id, FilePath, AssociatedWith, NeedToImprove, idEmployee FROM PRIMARY_DRAWINGS ORDER BY id DESC"
 GET_PRIMARY_BY_ID = "SELECT id, FilePath FROM PRIMARY_DRAWINGS WHERE id = %s"
 
 INSERT_PRO = """
@@ -146,9 +146,17 @@ class DrawingAppV2:
             
             self.status_label.config(text="Подключено ✅", fg='#2ecc71')
             self.root.after(500, self._create_main_ui)
+            # После создания UI сразу показать выбор сотрудника
+            self.root.after(600, self._force_select_employee)
             
         except Exception as e:
             messagebox.showerror("Ошибка подключения", str(e))
+    
+    def _force_select_employee(self):
+        """Принудительный выбор сотрудника при запуске"""
+        if not self.current_employee_id:
+            messagebox.showwarning("Внимание", "Выберите сотрудника для работы!")
+            self._select_employee()
     
     # =========================================================================
     # ГЛАВНЫЙ ИНТЕРФЕЙС
@@ -175,9 +183,12 @@ class DrawingAppV2:
             ("4. ✅ Проверка", self._stage_verify),
         ]
         
+        self.stage_buttons = []
         for text, cmd in stages:
-            tk.Button(top_frame, text=text, bg='#3498db', fg='white',
-                     font=('Arial', 10), command=cmd).pack(side=tk.LEFT, padx=5, pady=10)
+            btn = tk.Button(top_frame, text=text, bg='#3498db', fg='white',
+                           font=('Arial', 10), command=cmd)
+            btn.pack(side=tk.LEFT, padx=5, pady=10)
+            self.stage_buttons.append(btn)
         
         # Кнопка сотрудника
         tk.Button(top_frame, text="👤 Сотрудник", bg='#e67e22', fg='white',
@@ -253,11 +264,13 @@ class DrawingAppV2:
         ocr_frame = tk.Frame(pdf_controls, bg='#ecf0f1')
         ocr_frame.pack(fill=tk.X, pady=2)
         
-        tk.Label(ocr_frame, text="OCR страниц:", bg='#ecf0f1').pack(side=tk.LEFT)
-        self.ocr_pages_var = tk.StringVar(value="1")
-        self.ocr_pages_combo = ttk.Combobox(ocr_frame, textvariable=self.ocr_pages_var, 
-                                             values=["1", "2", "3", "4", "5", "Все"], width=8)
-        self.ocr_pages_combo.pack(side=tk.LEFT, padx=5)
+        tk.Label(ocr_frame, text="Страницы:", bg='#ecf0f1').pack(side=tk.LEFT)
+        self.ocr_pages_entry = tk.Entry(ocr_frame, width=15)
+        self.ocr_pages_entry.insert(0, "1")  # по умолчанию первая страница
+        self.ocr_pages_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Подсказка
+        tk.Label(ocr_frame, text="(1,3,7 или 1-8)", bg='#ecf0f1', fg='#7f8c8d', font=('Arial', 8)).pack(side=tk.LEFT, padx=5)
         
         # Масштаб
         scale_frame = tk.Frame(pdf_controls, bg='#ecf0f1')
@@ -310,7 +323,8 @@ class DrawingAppV2:
     def _stage_load(self):
         """Этап 1: Загрузка чертежей"""
         self.current_stage = 1
-        self._update_columns(["ID", "Название", "Дата загрузки", "Сотрудник", "Файл"])
+        self._update_stage_buttons()
+        self._update_columns(["ID", "Название", "Дата", "Сотрудник", "Файл", "Стр.", "Статус"])
         self._refresh_list()
         self._update_buttons([
             ("📂 Загрузить PDF", self._load_pdf),
@@ -396,7 +410,8 @@ class DrawingAppV2:
     def _stage_preprocess(self):
         """Этап 2: Предобработка и оценка качества"""
         self.current_stage = 2
-        self._update_columns(["ID", "Название", "Дата", "Сотрудник", "Статус OCR"])
+        self._update_stage_buttons()
+        self._update_columns(["ID", "Название", "Дата", "Сотрудник", "Стр.", "Статус OCR"])
         self._refresh_list()
         self._update_buttons([
             ("🔧 Обработать", self._run_preprocessing),
@@ -552,7 +567,8 @@ class DrawingAppV2:
     def _stage_ocr(self):
         """Этап 3: OCR распознавание"""
         self.current_stage = 3
-        self._update_columns(["ID", "Название", "Дата", "Сотрудник", "Статус OCR"])
+        self._update_stage_buttons()
+        self._update_columns(["ID", "Название", "Дата", "Сотрудник", "Стр.", "Статус OCR"])
         self._refresh_list()
         self._update_buttons([
             ("🔍 Запустить OCR", self._run_ocr),
@@ -572,7 +588,7 @@ class DrawingAppV2:
         """Запуск OCR"""
         selected = self.list_tree.selection()
         if not selected:
-            messagebox.showwarning("Внимание", "Выберите чертеж!")
+            messagebox.showwarning("Внимание", "Выберите чертёж!")
             return
         
         if not OCR_AVAILABLE:
@@ -593,35 +609,51 @@ class DrawingAppV2:
             
             # Открываем PDF
             self.pdf_doc = fitz.open(file_path)
-            self.current_page = 0
-            self._render_page()
+            total_pages = len(self.pdf_doc)
             
-            messagebox.showinfo("OCR", "Запускаю распознавание...")
+            # Получаем номера страниц для OCR
+            pages_to_ocr = self._get_ocr_pages_info()
             
-            # Предобработка
-            try:
-                from preprocessing import preprocess_for_ocr
-                processed = preprocess_for_ocr(self.page_image, page_num=1, save_files=False)
-                img_array = np.array(processed['processed'])
-            except:
-                img_array = np.array(self.page_image)
+            messagebox.showinfo("OCR", f"Запускаю распознавание...\nСтраниц: {len(pages_to_ocr)} из {total_pages}\nНомера: {[p+1 for p in pages_to_ocr]}")
             
-            # EasyOCR
-            try:
-                import easyocr
-                if not self.ocr_reader:
-                    self.ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
+            all_text = []
+            
+            # OCR для каждой страницы
+            for page_num in pages_to_ocr:
+                # Рендерим страницу
+                page = self.pdf_doc.load_page(page_num)
+                mat = fitz.Matrix(1.5, 1.5)  # чуть увеличим для лучшего распознавания
+                pix = page.get_pixmap(matrix=mat)
+                img_data = pix.tobytes("ppm")
+                page_image = Image.open(io.BytesIO(img_data))
                 
-                results = self.ocr_reader.readtext(
-                    img_array, detail=1, paragraph=False,
-                    allowlist='АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789№-.,=абвгдежзийклмнопрстуфхцчшщъыьэюяКПЛИСТФм#',
-                    width_ths=0.8, height_ths=0.8, low_text=0.3, text_threshold=0.7
-                )
+                # Предобработка
+                try:
+                    from preprocessing import preprocess_for_ocr
+                    processed = preprocess_for_ocr(page_image, page_num=page_num+1, save_files=False)
+                    img_array = np.array(processed['processed'])
+                except:
+                    img_array = np.array(page_image.convert('L'))
                 
-                extracted_text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
-                
-            except Exception as ocr_err:
-                extracted_text = f"OCR недоступен: {ocr_err}\n\nЗаполните данные вручную."
+                # EasyOCR
+                try:
+                    import easyocr
+                    if not self.ocr_reader:
+                        self.ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
+                    
+                    results = self.ocr_reader.readtext(
+                        img_array, detail=1, paragraph=False,
+                        allowlist='АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789№-.,=абвгдежзийклмнопрстуфхцчшщъыьэюяКПЛИСТФм#',
+                        width_ths=0.8, height_ths=0.8, low_text=0.3, text_threshold=0.7
+                    )
+                    
+                    page_text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
+                    all_text.append(f"--- Страница {page_num + 1} ---\n{page_text}")
+                    
+                except Exception as ocr_err:
+                    all_text.append(f"--- Страница {page_num + 1} ---\nOCR ошибка: {ocr_err}")
+            
+            extracted_text = '\n\n'.join(all_text)
             
             # Показываем результат
             self._show_info("РАСПОЗНАННЫЙ ТЕКСТ:\n" + "="*50 + "\n" + extracted_text)
@@ -638,15 +670,15 @@ class DrawingAppV2:
                 "",  # Dev
                 datetime.now().date(),  # DateOriginalCreation
                 "A4",  # OriginalPaperFormat
-                1,  # NumberOfSheets
-                extracted_text[:1000],  # Notes
+                len(pages_to_ocr),  # NumberOfSheets
+                extracted_text[:5000],  # Notes (увеличил лимит)
                 drawing_id,  # NumDrav
                 drawing_id  # idPrimaryDrawing
             ))
             pro_id = self.cur.fetchone()[0]
             self.conn.commit()
             
-            messagebox.showinfo("Успех", f"OCR завершено!\nPRO ID: {pro_id}\nТекст в буфере обмена")
+            messagebox.showinfo("Успех", f"OCR завершено!\nPRO ID: {pro_id}\nСтраниц обработано: {len(pages_to_ocr)}")
             
             self._refresh_list()
             self._stage_verify()
@@ -716,7 +748,8 @@ class DrawingAppV2:
     def _stage_verify(self):
         """Этап 4: Проверка данных"""
         self.current_stage = 4
-        self._update_columns(["ID", "Наименование", "Обозначение", "Проект", "Статус"])
+        self._update_stage_buttons()
+        self._update_columns(["ID", "Наименование", "Обозначение", "Проект", "Разработчик", "Статус"])
         self._refresh_list()
         self._update_buttons([
             ("✏️ Редактировать", self._edit_pro),
@@ -863,6 +896,20 @@ class DrawingAppV2:
             self.list_tree.heading(col, text=col)
             self.list_tree.column(col, width=100)
     
+    def _update_stage_buttons(self):
+        """Обновить цвет кнопок этапов - активная кнопка выделяется"""
+        if not hasattr(self, 'stage_buttons'):
+            return
+        
+        active_color = '#27ae60'  # зелёный - активный
+        inactive_color = '#3498db'  # синий - неактивный
+        
+        for i, btn in enumerate(self.stage_buttons):
+            if i + 1 == self.current_stage:
+                btn.config(bg=active_color, relief=tk.SUNKEN)
+            else:
+                btn.config(bg=inactive_color, relief=tk.RAISED)
+    
     def _update_buttons(self, buttons):
         for widget in self.action_frame.winfo_children():
             widget.destroy()
@@ -881,74 +928,88 @@ class DrawingAppV2:
         if not self.cur:
             return
         
+        # Если сотрудник не выбран - не показываем ничего
+        if not self.current_employee_id:
+            self._show_info("⚠️ Выберите сотрудника для работы!\n\nНажмите кнопку 'Сотрудник' в правом верхнем углу.")
+            return
+        
         try:
             if self.current_stage == 1:
-                # Этап 1: Загрузка - PRIMARY_DRAWINGS
+                # Этап 1: Загрузка - PRIMARY_DRAWINGS (только для выбранного сотрудника)
                 self.cur.execute("""
                     SELECT pd.id, COALESCE(sd.NumName, 'Без названия'),
-                           COALESCE(sd.DateAdded, pd.created_at),
+                           sd.DateAdded,
                            COALESCE(e.FullName, '—'),
-                           SUBSTRING(pd.FilePath FROM 1 FOR 40) || '...'
+                           SUBSTRING(pd.FilePath FROM 1 FOR 30) || '...',
+                           COALESCE(p.NumDrav::VARCHAR, '1'),
+                           CASE WHEN p.idPrmRes IS NOT NULL THEN '✓ OCR' ELSE '⏳ Новый' END
                     FROM PRIMARY_DRAWINGS pd
                     LEFT JOIN SKETCH_DRAWINGS sd ON pd.AssociatedWith = sd.idSkDrav::VARCHAR
                     LEFT JOIN EMPLOYEES e ON e.idEmployee = pd.idEmployee
+                    LEFT JOIN PRO p ON p.idPrimaryDrawing = pd.id
+                    WHERE pd.idEmployee = %s
                     ORDER BY pd.id DESC
-                """)
+                """, (self.current_employee_id,))
                 for row in self.cur.fetchall():
-                    date_str = row[2].strftime("%d.%m.%Y %H:%M") if row[2] else "—"
-                    self.list_tree.insert("", tk.END, values=(row[0], row[1], date_str, row[3], row[4] or "—"))
+                    date_str = row[2].strftime("%d.%m.%Y") if row[2] else "—"
+                    self.list_tree.insert("", tk.END, values=(row[0], row[1], date_str, row[3], row[4] or "—", row[5], row[6]))
             
             elif self.current_stage == 2:
-                # Этап 2: Предобработка - чертежи без PRO
+                # Этап 2: Предобработка - чертежи без PRO (только для выбранного сотрудника)
                 self.cur.execute("""
                     SELECT pd.id, COALESCE(sd.NumName, 'Без названия'),
-                           COALESCE(sd.DateAdded, pd.created_at),
+                           sd.DateAdded,
                            COALESCE(e.FullName, '—'),
+                           COALESCE(p.NumDrav::VARCHAR, '1'),
                            CASE WHEN p.idPrmRes IS NOT NULL THEN '✓ Распознан' ELSE '⏳ Ожидает' END
                     FROM PRIMARY_DRAWINGS pd
                     LEFT JOIN SKETCH_DRAWINGS sd ON pd.AssociatedWith = sd.idSkDrav::VARCHAR
                     LEFT JOIN EMPLOYEES e ON e.idEmployee = pd.idEmployee
                     LEFT JOIN PRO p ON p.idPrimaryDrawing = pd.id
+                    WHERE pd.idEmployee = %s
                     ORDER BY pd.id DESC
-                """)
+                """, (self.current_employee_id,))
                 for row in self.cur.fetchall():
-                    date_str = row[2].strftime("%d.%m.%Y %H:%M") if row[2] else "—"
-                    self.list_tree.insert("", tk.END, values=(row[0], row[1], date_str, row[3], row[4]))
+                    date_str = row[2].strftime("%d.%m.%Y") if row[2] else "—"
+                    self.list_tree.insert("", tk.END, values=(row[0], row[1], date_str, row[3], row[4], row[5]))
             
             elif self.current_stage == 3:
-                # Этап 3: OCR - показываем чертежи для распознавания
+                # Этап 3: OCR - показываем чертежи для распознавания (только для выбранного сотрудника)
                 self.cur.execute("""
                     SELECT pd.id, COALESCE(sd.NumName, 'Без названия'),
-                           COALESCE(sd.DateAdded, pd.created_at),
+                           sd.DateAdded,
                            COALESCE(e.FullName, '—'),
+                           COALESCE(p.NumDrav::VARCHAR, '1'),
                            CASE WHEN p.idPrmRes IS NOT NULL THEN '✓ Распознан' ELSE '⏳ Ожидает' END
                     FROM PRIMARY_DRAWINGS pd
                     LEFT JOIN SKETCH_DRAWINGS sd ON pd.AssociatedWith = sd.idSkDrav::VARCHAR
                     LEFT JOIN EMPLOYEES e ON e.idEmployee = pd.idEmployee
                     LEFT JOIN PRO p ON p.idPrimaryDrawing = pd.id
+                    WHERE pd.idEmployee = %s
                     ORDER BY pd.id DESC
-                """)
+                """, (self.current_employee_id,))
                 for row in self.cur.fetchall():
-                    date_str = row[2].strftime("%d.%m.%Y %H:%M") if row[2] else "—"
-                    self.list_tree.insert("", tk.END, values=(row[0], row[1], date_str, row[3], row[4]))
+                    date_str = row[2].strftime("%d.%m.%Y") if row[2] else "—"
+                    self.list_tree.insert("", tk.END, values=(row[0], row[1], date_str, row[3], row[4], row[5]))
             
             elif self.current_stage == 4:
-                # Этап 4: Проверка - PRO
+                # Этап 4: Проверка - PRO (только для выбранного сотрудника)
                 self.cur.execute("""
                     SELECT p.idPrmRes, p.NameDrav, p.Designation, 
                            COALESCE(p.ProjectCode::VARCHAR, '—'),
+                           COALESCE(p.Dev, '—'),
                            CASE WHEN f.idFnlRes IS NOT NULL THEN '✓ Валидирован' 
                                 WHEN pd.NeedToImprove = TRUE THEN '⏳ На доработке' 
                                 ELSE '✓ Одобрено' END,
-                           p.OriginalPaperFormat, p.NumberOfSheets,
-                           COALESCE(p.Dev, '—'), p.NumDrav
+                           p.OriginalPaperFormat, p.NumberOfSheets
                     FROM PRO p
                     LEFT JOIN PRIMARY_DRAWINGS pd ON pd.id = p.idPrimaryDrawing
                     LEFT JOIN FRO f ON f.pro_id = p.idPrmRes
+                    WHERE pd.idEmployee = %s
                     ORDER BY p.idPrmRes DESC
-                """)
+                """, (self.current_employee_id,))
                 for row in self.cur.fetchall():
-                    self.list_tree.insert("", tk.END, values=(row[0], row[1], row[2], row[3], row[4]))
+                    self.list_tree.insert("", tk.END, values=(row[0], row[1], row[2], row[3], row[4], row[5]))
         
         except Exception as e:
             print(f"Ошибка обновления: {e}")
@@ -1036,7 +1097,7 @@ class DrawingAppV2:
                 drawing_id = values[0]
                 self.cur.execute("""
                     SELECT pd.id, sd.NumName, sd.SFilePath, sd.DateAdded, 
-                           e.FullName, e.Post, pd.NeedToImprove, pd.created_at
+                           e.FullName, e.Post, pd.NeedToImprove
                     FROM PRIMARY_DRAWINGS pd
                     LEFT JOIN SKETCH_DRAWINGS sd ON pd.AssociatedWith = sd.idSkDrav::VARCHAR
                     LEFT JOIN EMPLOYEES e ON e.idEmployee = pd.idEmployee
@@ -1044,23 +1105,10 @@ class DrawingAppV2:
                 """, (drawing_id,))
                 row = self.cur.fetchone()
                 if row:
-                    # Автоматически загружаем PDF
+                    # Автоматически загружаем PDF (без показа деталей)
                     if row[2] and os.path.exists(row[2]):
                         self._load_pdf_viewer(row[2])
                     
-                    info = f"""Детали чертежа:
-══════════════════════════════════════
-ID: {row[0]}
-Название: {row[1] or 'Без названия'}
-Путь к файлу: {row[2] or '—'}
-Дата загрузки: {row[3].strftime('%d.%m.%Y %H:%M') if row[3] else '—'}
-Дата создания: {row[7].strftime('%d.%m.%Y %H:%M') if row[7] else '—'}
-Сотрудник: {row[4] or '—'}
-Должность: {row[5] or '—'}
-Требует улучшения: {'Да' if row[6] else 'Нет'}
-══════════════════════════════════════"""
-                    self._show_info(info)
-            
             elif self.current_stage == 4:
                 # Показываем детали PRO
                 pro_id = values[0]
@@ -1074,37 +1122,10 @@ ID: {row[0]}
                 """, (pro_id,))
                 row = self.cur.fetchone()
                 if row:
-                    # Автоматически загружаем PDF если есть
+                    # Автоматически загружаем PDF если есть (без показа деталей)
                     if row[17] and os.path.exists(row[17]):
                         self._load_pdf_viewer(row[17])
                     
-                    # row: 0=idPrmRes, 1=NameDrav, 2=Designation, 3=ProjectCode, 4=Dev,
-                    # 5=DateOriginalCreation, 6=OriginalPaperFormat, 7=NumberOfSheets,
-                    # 8=Notes, 9=NumDrav, 10=idPrimaryDrawing, 11=validated, 12=validated_by,
-                    # 13=validation_date, 14=created_at, 15=FullName (валидатор), 16=idFnlRes
-                    info = f"""Детали PRO (OCR результат):
-══════════════════════════════════════
-ID: {row[0]}
-Наименование: {row[1] or '—'}
-Обозначение: {row[2] or '—'}
-Код проекта: {row[3] or '—'}
-Разработчик: {row[4] or '—'}
-Дата создания: {row[5] or '—'}
-Формат: {row[6] or '—'}
-Кол-во листов: {row[7]}
-Номер чертежа: {row[9] or '—'}
-Валидирован: {'Да' if row[11] else 'Нет'}
-Валидатор: {row[15] or '—'}
-ID FRO: {row[16] or '—'}
-Дата создания записи: {row[14].strftime('%d.%m.%Y %H:%M') if row[14] else '—'}
-══════════════════════════════════════
-
-Текст (Notes):
-────────────────────────────────────────
-{row[8][:500] if row[8] else '—'}
-{'...' if row[8] and len(row[8]) > 500 else ''}"""
-                    self._show_info(info)
-        
         except Exception as e:
             print(f"Ошибка при выборе: {e}")
             self._rollback()
@@ -1156,7 +1177,7 @@ ID FRO: {row[16] or '—'}
             self._render_pdf_page()
             self._update_page_label()
             
-            messagebox.showinfo("Успех", f"PDF загружен!\nСтраниц: {self.total_pages}")
+            # Без уведомления - просто загружаем
             
         except Exception as e:
             messagebox.showerror("Ошибка загрузки PDF", str(e))
@@ -1270,15 +1291,52 @@ ID FRO: {row[16] or '—'}
         self.scale_var.set("1.0")
         self._render_pdf_page()
     
-    def _get_ocr_pages_count(self):
-        """Получить количество страниц для OCR"""
-        value = self.ocr_pages_var.get()
-        if value == "Все":
-            return self.total_pages
-        try:
-            return int(value)
-        except:
-            return 1
+    def _get_ocr_pages_info(self):
+        """Получить информацию о страницах для OCR (номера страниц)"""
+        value = self.ocr_pages_entry.get().strip()
+        
+        if not value:
+            return [0]  # первая страница по умолчанию
+        
+        # Если "все" или "all"
+        if value.lower() in ["все", "all"]:
+            return list(range(self.total_pages))
+        
+        pages = []
+        
+        # Диапазон (например: "1-8" или "1 - 8")
+        if '-' in value:
+            try:
+                parts = value.split('-')
+                if len(parts) == 2:
+                    start = int(parts[0].strip()) - 1
+                    end = int(parts[1].strip())
+                    pages = list(range(start, end))
+            except:
+                pass
+        # Конкретные номера через запятую (например: "1,3,7" или "1, 3, 7")
+        elif ',' in value:
+            try:
+                for p in value.split(','):
+                    p = p.strip()
+                    if p:
+                        pages.append(int(p) - 1)
+            except:
+                pass
+        else:
+            # Одно число
+            try:
+                pages = [int(value) - 1]
+            except:
+                pass
+        
+        # Фильтруем только существующие страницы
+        valid_pages = [p for p in pages if 0 <= p < self.total_pages]
+        
+        if not valid_pages:
+            return [0]  # по умолчанию первая страница
+        
+        return sorted(set(valid_pages))
 
 
 # ============================================================================

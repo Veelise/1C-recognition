@@ -103,15 +103,6 @@ CREATE TABLE IF NOT EXISTS TEMPLATE_AREA (
     idGOST BIGINT REFERENCES DRAWING_TAMPLATES(idGOST)
 );
 
--- 9. ВЕРСИИ ЧЕРТЕЖЕЙ (для этапа 3 - исправления)
-CREATE TABLE IF NOT EXISTS DRAWING_VERSIONS (
-    id_version BIGSERIAL PRIMARY KEY,
-    original_drawing_id BIGINT REFERENCES PRIMARY_DRAWINGS(id),
-    corrected_drawing_id BIGINT REFERENCES PRIMARY_DRAWINGS(id),
-    correction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    idEmployee BIGINT REFERENCES EMPLOYEES(idEmployee)
-);
-
 -- ============================================================================
 -- ТЕСТОВЫЕ ДАННЫЕ (опционально)
 -- ============================================================================
@@ -149,6 +140,4 @@ SELECT 'ARCH_OF_DRAWS', COUNT(*) FROM ARCH_OF_DRAWS
 UNION ALL
 SELECT 'DRAWING_TAMPLATES', COUNT(*) FROM DRAWING_TAMPLATES
 UNION ALL
-SELECT 'TEMPLATE_AREA', COUNT(*) FROM TEMPLATE_AREA
-UNION ALL
-SELECT 'DRAWING_VERSIONS', COUNT(*) FROM DRAWING_VERSIONS;
+SELECT 'TEMPLATE_AREA', COUNT(*) FROM TEMPLATE_AREA;

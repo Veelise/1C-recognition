@@ -4,7 +4,6 @@
 -- ============================================================================
 
 -- Удаление существующих таблиц (в правильном порядке из-за FK)
-DROP TABLE IF EXISTS DRAWING_VERSIONS CASCADE;
 DROP TABLE IF EXISTS TEMPLATE_AREA CASCADE;
 DROP TABLE IF EXISTS ARCH_OF_DRAWS CASCADE;
 DROP TABLE IF EXISTS FRO CASCADE;
@@ -167,22 +166,6 @@ CREATE TABLE TEMPLATE_AREA (
 CREATE INDEX idx_template_area_gost ON TEMPLATE_AREA(idGOST);
 
 -- ============================================================================
--- 9. DRAWING_VERSIONS — Версии чертежей (исправления)
--- ============================================================================
-CREATE TABLE DRAWING_VERSIONS (
-    id_version BIGSERIAL PRIMARY KEY,
-    original_drawing_id BIGINT REFERENCES PRIMARY_DRAWINGS(id) ON DELETE CASCADE,
-    corrected_drawing_id BIGINT REFERENCES PRIMARY_DRAWINGS(id) ON DELETE CASCADE,
-    correction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    idEmployee BIGINT REFERENCES EMPLOYEES(idEmployee) ON DELETE SET NULL,
-    Notes TEXT
-);
-
--- Индексы
-CREATE INDEX idx_versions_original ON DRAWING_VERSIONS(original_drawing_id);
-CREATE INDEX idx_versions_corrected ON DRAWING_VERSIONS(corrected_drawing_id);
-
--- ============================================================================
 -- ТЕСТОВЫЕ ДАННЫЕ
 -- ============================================================================
 
@@ -201,5 +184,4 @@ UNION ALL SELECT 'PRO', COUNT(*) FROM PRO
 UNION ALL SELECT 'FRO', COUNT(*) FROM FRO
 UNION ALL SELECT 'ARCH_OF_DRAWS', COUNT(*) FROM ARCH_OF_DRAWS
 UNION ALL SELECT 'DRAWING_TAMPLATES', COUNT(*) FROM DRAWING_TAMPLATES
-UNION ALL SELECT 'TEMPLATE_AREA', COUNT(*) FROM TEMPLATE_AREA
-UNION ALL SELECT 'DRAWING_VERSIONS', COUNT(*) FROM DRAWING_VERSIONS;
+UNION ALL SELECT 'TEMPLATE_AREA', COUNT(*) FROM TEMPLATE_AREA;
