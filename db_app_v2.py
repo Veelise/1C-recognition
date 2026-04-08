@@ -655,8 +655,8 @@ class DrawingAppV2:
             
             extracted_text = '\n\n'.join(all_text)
             
-            # Показываем результат
-            self._show_info("РАСПОЗНАННЫЙ ТЕКСТ:\n" + "="*50 + "\n" + extracted_text)
+            # Добавляем результат (не заменяем информацию меню)
+            self._append_info("РАСПОЗНАННЫЙ ТЕКСТ:\n" + extracted_text)
             
             # Копируем в буфер
             self.root.clipboard_clear()
@@ -921,6 +921,11 @@ class DrawingAppV2:
         self.detail_text.delete("1.0", tk.END)
         self.detail_text.insert(tk.END, text)
     
+    def _append_info(self, text):
+        """Добавить текст в конец существующего"""
+        self.detail_text.insert(tk.END, "\n" + "="*60 + "\n")
+        self.detail_text.insert(tk.END, text)
+    
     def _refresh_list(self):
         for item in self.list_tree.get_children():
             self.list_tree.delete(item)
@@ -1110,10 +1115,14 @@ class DrawingAppV2:
                         self._load_pdf_viewer(row[2])
                     
             elif self.current_stage == 4:
-                # Показываем детали PRO
+                # Показываем детали PRO + распознанный текст
                 pro_id = values[0]
                 self.cur.execute("""
-                    SELECT p.*, val.FullName, f.idFnlRes, pd.FilePath
+                    SELECT p.idPrmRes, p.NameDrav, p.Designation, p.ProjectCode, p.Dev,
+                           p.DateOriginalCreation, p.OriginalPaperFormat, p.NumberOfSheets,
+                           p.Notes, p.NumDrav, p.idPrimaryDrawing, p.validated, 
+                           p.validated_by, p.validation_date,
+                           val.FullName, f.idFnlRes, pd.FilePath
                     FROM PRO p
                     LEFT JOIN EMPLOYEES val ON val.idEmployee = p.validated_by
                     LEFT JOIN FRO f ON f.pro_id = p.idPrmRes
@@ -1122,9 +1131,16 @@ class DrawingAppV2:
                 """, (pro_id,))
                 row = self.cur.fetchone()
                 if row:
-                    # Автоматически загружаем PDF если есть (без показа деталей)
-                    if row[17] and os.path.exists(row[17]):
-                        self._load_pdf_viewer(row[17])
+                    # Загружаем PDF если есть (FilePath - индекс 16)
+                    if row[16] and os.path.exists(row[16]):
+                        self._load_pdf_viewer(row[16])
+                    
+                    # Показываем распознанный текст (Notes) - индекс 8
+                    notes = row[8]
+                    if notes:
+                        # Показываем только текст чертежа (без накопления)
+                        self.detail_text.delete("1.0", tk.END)
+                        self.detail_text.insert(tk.END, f"ТЕКСТ ЧЕРТЕЖА #{pro_id}:\n{notes}")
                     
         except Exception as e:
             print(f"Ошибка при выборе: {e}")
