@@ -7,9 +7,24 @@ import easyocr
 import numpy as np
 from preprocessing import preprocess_for_ocr
 import os
+import datetime
 
 # Инициализация EasyOCR (один раз!)
 reader = easyocr.Reader(['ru', 'en'], gpu=False)
+
+
+
+def log_crash(error_msg, func_name="unknown"):
+    """Только текст краша в crash_reports/."""
+    os.makedirs("crash_reports", exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = f"crash_reports/{func_name}_{timestamp}.txt"
+    
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(error_msg)  # Только текст!
+    
+    print(f"📄 Краш: {report_path}")
+    return report_path
 
 
 def load_pdf_with_buttons():
@@ -230,7 +245,13 @@ def load_pdf_with_buttons():
             print(f"OCR: {len([r for r in results if r[2]>0.5])} строк conf>0.5")
             
         except Exception as e:
-            messagebox.showerror("Ошибка OCR", str(e))
+            report_path = log_crash(str(e), "perform_ocr")
+            messagebox.showerror("Ошибка OCR", f"{str(e)}\n📄 {report_path}")
+            
+            if high_res_rendered:
+                scale[0] = original_scale
+                render_page()
+                root.update()
     
     # select_file
     def select_file():

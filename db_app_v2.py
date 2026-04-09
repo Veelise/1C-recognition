@@ -10,6 +10,7 @@ import os
 import io
 from datetime import datetime
 import numpy as np
+import datetime
 
 # Попытка импорта библиотек для OCR
 try:
@@ -71,6 +72,19 @@ INSERT_ARCHIVE = """
 # ОСНОВНОЙ КЛАСС ПРИЛОЖЕНИЯ
 # ============================================================================
 
+def log_crash(error_msg, func_name="unknown"):
+        """Только текст краша в crash_reports/."""
+        os.makedirs("crash_reports", exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_path = f"crash_reports/{func_name}_{timestamp}.txt"
+        
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(error_msg)  # Только текст!
+        
+        print(f"📄 Краш: {report_path}")
+        return report_path
+
+
 class DrawingAppV2:
     def __init__(self, root):
         self.root = root
@@ -92,6 +106,8 @@ class DrawingAppV2:
     # =========================================================================
     # ПОДКЛЮЧЕНИЕ К БД
     # =========================================================================
+    
+    
     
     def _create_connection_ui(self):
         """Интерфейс подключения к БД"""
@@ -149,8 +165,13 @@ class DrawingAppV2:
             # После создания UI сразу показать выбор сотрудника
             self.root.after(600, self._force_select_employee)
             
+        #except Exception as e:
+            #messagebox.showerror("Ошибка подключения", str(e))
+            
         except Exception as e:
-            messagebox.showerror("Ошибка подключения", str(e))
+            report_path = log_crash(str(e), "perform_ocr")
+            messagebox.showerror("Ошибка подключения", f"{str(e)}\n📄 {report_path}")
+            
     
     def _force_select_employee(self):
         """Принудительный выбор сотрудника при запуске"""
