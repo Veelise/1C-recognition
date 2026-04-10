@@ -10,7 +10,6 @@ import os
 import io
 from datetime import datetime
 import numpy as np
-import datetime
 
 # Попытка импорта библиотек для OCR
 try:
@@ -75,7 +74,7 @@ INSERT_ARCHIVE = """
 def log_crash(error_msg, func_name="unknown"):
         """Только текст краша в crash_reports/."""
         os.makedirs("crash_reports", exist_ok=True)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_path = f"crash_reports/{func_name}_{timestamp}.txt"
         
         with open(report_path, "w", encoding="utf-8") as f:
