@@ -4,12 +4,15 @@
 # ============================================================================
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog
+from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog, Toplevel, Label, Text
 import psycopg2
 import os
 import io
 from datetime import datetime
 import numpy as np
+import cv2
+from PIL import Image, ImageGrab
+import re, traceback
 
 # Попытка импорта библиотек для OCR
 try:
@@ -72,16 +75,20 @@ INSERT_ARCHIVE = """
 # ============================================================================
 
 def log_crash(error_msg, func_name="unknown"):
-        """Только текст краша в crash_reports/."""
-        os.makedirs("crash_reports", exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_path = f"crash_reports/{func_name}_{timestamp}.txt"
-        
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write(error_msg)  # Только текст!
-        
-        print(f"📄 Краш: {report_path}")
-        return report_path
+    """Пишет в crash_reports/ полный трейсбек + сообщение."""
+    os.makedirs("crash_reports", exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = f"crash_reports/{func_name}_{timestamp}.txt"
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        # Записываем полный трейсбек
+        f.write("=== FULL TRACEBACK ===\n")
+        f.write(traceback.format_exc())
+        f.write("\n\n=== ERROR MESSAGE ===\n")
+        f.write(str(error_msg))
+
+    print(f"📄 Краш: {report_path}")
+    return report_path
 
 
 class DrawingAppV2:
@@ -96,7 +103,7 @@ class DrawingAppV2:
         self.current_pdf_path = None
         self.current_drawing_id = None
         self.pdf_doc = None
-        self.page_image = None
+        self.page_image = None    # это нормально
         self.scale = 2.0
         self.ocr_reader = None
         
@@ -299,7 +306,7 @@ class DrawingAppV2:
         tk.Label(scale_frame, text="Масштаб:", bg='#ecf0f1').pack(side=tk.LEFT)
         self.scale_var = tk.StringVar(value="1.0")
         scale_combo = ttk.Combobox(scale_frame, textvariable=self.scale_var,
-                                    values=["0.5", "1.0", "1.5", "2.0", "2.5", "3.0"], width=6)
+                                    values=["0.5", "1.0", "1.5", "2.0", "3.8", "5.0"], width=6)
         scale_combo.pack(side=tk.LEFT, padx=5)
         scale_combo.bind("<<ComboboxSelected>>", self._on_scale_change)
         
@@ -402,8 +409,8 @@ class DrawingAppV2:
             self._stage_preprocess()
             
         except Exception as e:
-            self._rollback()
-            messagebox.showerror("Ошибка", str(e))
+            report_path = log_crash(str(e), "perform_ocr")
+            messagebox.showerror("Ошибка", f"{str(e)}\n📄 {report_path}")
     
     def _delete_drawing(self):
         """Удалить чертеж"""
@@ -420,8 +427,8 @@ class DrawingAppV2:
                 self._refresh_list()
                 messagebox.showinfo("Успех", "Чертёж удалён")
             except Exception as e:
-                self._rollback()
-                messagebox.showerror("Ошибка", str(e))
+                report_path = log_crash(str(e), "perform_ocr")
+                messagebox.showerror("Ошибка", f"{str(e)}\n📄 {report_path}")
     
     # =========================================================================
     # ЭТАП 2: ПРЕДОБРАБОТКА
@@ -452,98 +459,153 @@ class DrawingAppV2:
 - Искажения >15% → запрос на улучшение""")
     
     def _run_preprocessing(self):
-        """Запуск предобработки"""
         selected = self.list_tree.selection()
         if not selected:
-            messagebox.showwarning("Внимание", "Выберите чертеж!")
+            messagebox.showwarning("Внимание", "Выберите чертёж!")
             return
-        
-        drawing_id = self.list_tree.item(selected[0])['values'][0]
-        
-        # Получаем путь к файлу
+
+        values = self.list_tree.item(selected[0])['values']
+        drawing_id = values[0]
+        drawing_name = str(values[1])
+        match = re.search(r'\d+', drawing_name)
+        folder_name = match.group() if match else str(drawing_id)
+
         try:
             self.cur.execute(GET_PRIMARY_BY_ID, (drawing_id,))
             result = self.cur.fetchone()
             if not result:
                 messagebox.showerror("Ошибка", "Чертёж не найден")
                 return
-            
+
             file_path = result[1]
-            if not os.path.exists(file_path):
-                messagebox.showerror("Ошибка", f"Файл не найден: {file_path}")
-                return
-            
-            # Открываем PDF
+            # ... (проверки os.path.exists) ...
+
             self.pdf_doc = fitz.open(file_path)
-            if len(self.pdf_doc) == 0:
-                messagebox.showerror("Ошибка", "PDF пустой")
-                return
-            
-            self.current_page = 0
-            self._render_page()
-            
-            # Оценка качества (упрощённая)
-            # В реальности тут был бы анализ изображения
-            distortion_level = 10  # условно 10%
-            
+            self.root.update()
+
+            # Актуальный номер страницы (учитываем, что current_page начинается с 0)
+            actual_page_num = self.current_page + 1 
+
+            distortion_level = 10 
+
             if distortion_level <= 15:
                 msg = f"Уровень искажений: {distortion_level}%\nПереход к предобработке..."
                 messagebox.showinfo("Контроль качества", msg)
-                self._do_preprocessing(drawing_id)
+                result = self._do_preprocessing(self.page_image, page_num=actual_page_num, drawing_id=folder_name)
             else:
-                response = messagebox.askyesno("Контроль качества", 
-                    f"Уровень искажений: {distortion_level}%\nИзображение имеет значительные искажения.\n\nУлучшить читаемость?")
-                
+                response = messagebox.askyesno("Контроль качества", "Улучшить читаемость?")
                 if response:
-                    self._do_preprocessing(drawing_id)
+                    result = self._do_preprocessing(self.page_image, page_num=actual_page_num, drawing_id=folder_name)
                 else:
-                    response2 = messagebox.askyesno("Контроль качества", 
-                        "Принудительно запустить предобработку?")
+                    response2 = messagebox.askyesno("Контроль качества", "Принудительно запустить?")
                     if response2:
-                        self._do_preprocessing(drawing_id)
+                        result = self._do_preprocessing(self.page_image, page_num=actual_page_num, drawing_id=folder_name)
                     else:
-                        response3 = messagebox.askyesno("Контроль качества", 
-                            "Пропустить предобработку и перейти к OCR?")
-                        if response3:
-                            self._skip_preprocess()
-            
+                        return  # если пользователь нажал "нет" — выход без предобработки
+
+            # СОХРАНЯЕМ результат в self
+            self.preprocessed_image = result["processed"]  # PIL.Image
+
         except Exception as e:
-            messagebox.showerror("Ошибка", str(e))
+            report_path = log_crash(str(e), "perform_ocr")
+            messagebox.showerror("Ошибка", f"{str(e)}\n📄 {report_path}")
     
-    def _do_preprocessing(self, drawing_id):
+    def _do_preprocessing(self, pil_image, page_num=1, drawing_id="folder_name"):
         """Выполнение предобработки"""
-        try:
-            # Пытаемся импортировать preprocessing
-            try:
-                from preprocessing import preprocess_for_ocr
-                processed = preprocess_for_ocr(self.page_image, page_num=1, save_files=True)
-                self.page_image = processed['processed']
-                status = "✓ Предобработка выполнена"
-            except ImportError:
-                # Если нет модуля preprocessing, используем базовую обработку
-                from PIL import Image, ImageEnhance, ImageFilter
-                
-                # Конвертируем в grayscale
-                img = self.page_image.convert('L')
-                
-                # Бинаризация
-                enhancer = ImageEnhance.Contrast(img)
-                img = enhancer.enhance(1.5)
-                
-                # Удаление шума
-                img = img.filter(ImageFilter.MedianFilter(size=3))
-                
-                self.page_image = img
-                status = "✓ Базовая предобработка выполнена"
+        
+        # 1. Принудительное приведение к 8-битному массиву (ИСПРАВЛЕНИЕ ОШИБКИ)
+        img_array = np.array(pil_image)
+        if img_array.dtype != np.uint8:
+            # Если данные выходят за пределы 0-255, нормализуем их
+            if img_array.max() > 255 or img_array.min() < 0:
+                img_array = cv2.normalize(img_array, None, 0, 255, cv2.NORM_MINMAX)
+            img_array = img_array.astype(np.uint8)
+
+        # 2. Определение цветового пространства и конвертация
+        # Проверяем, есть ли альфа-канал (RGBA), чтобы не было проблем с 3 vs 4 каналами
+        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+            img = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
+        elif len(img_array.shape) == 3:
+            img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        else:
+            # Если изображение уже в оттенках серого (2D массив)
+            img = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        h, w = gray.shape
+        
+        # 1. Резкость + CLAHE + denoise
+        gaussian = cv2.GaussianBlur(gray, (0, 0), 1.0)
+        sharpened = cv2.addWeighted(gray, 1.5, gaussian, -0.5, 0)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        enhanced = clahe.apply(sharpened)
+        denoised = cv2.medianBlur(enhanced, 3)
+        
+        temp_img = Image.fromarray(denoised)
+        
+        # 2. Deskew
+        edges = cv2.Canny(denoised, 50, 150, apertureSize=3)
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=w//15, maxLineGap=15)
+        angles = []
+        lines_count = len(lines) if lines is not None else 0
+        
+        if lines is not None:
+            for line in lines[:30]:
+                x1, y1, x2, y2 = line[0]
+                angle = np.degrees(np.arctan2(y2-y1, x2-x1))
+                if 0.5 < abs(angle) < 45:
+                    angles.append(angle)
+        
+        deskew_angle = np.median(angles) if angles else 0
+        if abs(deskew_angle) > 0.3:
+            center = (w//2, h//2)
+            M = cv2.getRotationMatrix2D(center, deskew_angle, 1.0)
+            denoised = cv2.warpAffine(denoised, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        
+        # 3. УСИЛЕННАЯ МОРФОЛОГИЯ (для сплошных букв)
+
+        # Уплотняем штрихи
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        cleaned = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, kernel)
+        cleaned = cv2.dilate(cleaned, kernel, iterations=1)
+
+        # Adaptive threshold с чуть более мягким порогом
+        binary = cv2.adaptiveThreshold(
+            cleaned,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            21, 1
+        )
+
+        if np.mean(cleaned) < 127:
+            binary = cv2.bitwise_not(binary)
             
-            # Обновляем статус в БД
-            self._show_info(f"Предобработка завершена!\n\n{status}\n\nПереходим к выбору области...")
+                      
+        base_dir = os.path.join(f"drawing_{drawing_id}", f"page_{page_num}")
+        
+        # Создаем вложенные папки (Уровень 3-4)
+        path_cleared = os.path.join(base_dir, "cleared_page")
+        path_temp = os.path.join(base_dir, "temp_page")
+        os.makedirs(path_cleared, exist_ok=True)
+        os.makedirs(path_temp, exist_ok=True)
+        
+        # Полные пути к файлам
+        cleared_path = os.path.join(path_cleared, f"page_{page_num}_cleared.jpg")
+        temp_path = os.path.join(path_temp, f"page_{page_num}_temp.jpg")
+        
+        # Сохранение (Image - объект PIL)
+        Image.fromarray(binary).save(cleared_path)
+        temp_img.save(temp_path)            
+        
+        return {
+            'processed': Image.fromarray(binary),
+            'temp': temp_img,
+            'deskew_angle': deskew_angle,
+            'lines_detected': lines_count
+        }
             
-            # Переходим к выбору области
-            self._show_template_selection(drawing_id)
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка предобработки", str(e))
+       
     
     def _skip_preprocess(self):
         """Пропустить предобработку"""
@@ -553,7 +615,18 @@ class DrawingAppV2:
             return
         
         drawing_id = self.list_tree.item(selected[0])['values'][0]
+        
+        # Фиктивная предобработка: используем оригинал как "обработанный"
+        if hasattr(self, 'page_image') and self.page_image:
+            self.preprocessed_image = self.page_image.copy()  # Копируем оригинал
+            self._show_info("Предобработка пропущена. Используется оригинал.")
+        else:
+            messagebox.showwarning("Внимание", "Сначала откройте страницу!")
+            return
+        
         self._show_template_selection(drawing_id)
+        
+        
     
     def _show_template_selection(self, drawing_id):
         """Выбор шаблона/области"""
@@ -569,16 +642,7 @@ class DrawingAppV2:
             self._show_info("Выберите область на изображении\n(в данной версии - весь файл)\nПереходим к OCR...")
             self._stage_ocr()
     
-    def _render_page(self):
-        """Рендер страницы PDF"""
-        if not self.pdf_doc:
-            return
-        
-        page = self.pdf_doc.load_page(self.current_page)
-        mat = fitz.Matrix(self.scale, self.scale)
-        pix = page.get_pixmap(matrix=mat)
-        img_data = pix.tobytes("ppm")
-        self.page_image = Image.open(io.BytesIO(img_data))
+    
     
     # =========================================================================
     # ЭТАП 3: OCR
@@ -592,7 +656,8 @@ class DrawingAppV2:
         self._refresh_list()
         self._update_buttons([
             ("🔍 Запустить OCR", self._run_ocr),
-            ("✏️ Вручную", self._create_pro_manual),
+            ("Создать анкету вручную", self._create_pro_manual),
+            ("✏️ Выделить область", self._recognition_area),
         ])
         self._show_info("""ЭТАП 3: OCR РАСПОЗНАВАНИЕ
 
@@ -603,6 +668,11 @@ class DrawingAppV2:
 4. Данные сохранятся в БД (таблица PRO)
 
 После OCR данные можно редактировать на этапе 4.""")
+        
+        self.scale_var.set(str(self.scale))
+        # 1. ПЕРЕРИСОВЫВАЕМ PDF на этапе OCR
+        if self.pdf_doc and hasattr(self, "pdf_canvas"):
+            self._render_pdf_page()
     
     def _run_ocr(self):
         """Запуск OCR"""
@@ -640,20 +710,24 @@ class DrawingAppV2:
             
             # OCR для каждой страницы
             for page_num in pages_to_ocr:
-                # Рендерим страницу
                 page = self.pdf_doc.load_page(page_num)
-                mat = fitz.Matrix(1.5, 1.5)  # чуть увеличим для лучшего распознавания
+                mat = fitz.Matrix(1.5, 1.5)
                 pix = page.get_pixmap(matrix=mat)
-                img_data = pix.tobytes("ppm")
-                page_image = Image.open(io.BytesIO(img_data))
+                page_image = Image.open(io.BytesIO(pix.tobytes("ppm")))
                 
-                # Предобработка
-                try:
-                    from preprocessing import preprocess_for_ocr
-                    processed = preprocess_for_ocr(page_image, page_num=page_num+1, save_files=False)
-                    img_array = np.array(processed['processed'])
-                except:
-                    img_array = np.array(page_image.convert('L'))
+                
+                
+                
+                
+                # ✅ ПРОВЕРКА: используем готовую предобработку ИЛИ делаем новую
+                if hasattr(self, 'preprocessed_image') and self.preprocessed_image:
+                    img_array = np.array(self.preprocessed_image)
+                    print(f"✅ Используем готовую предобработку для стр. {page_num+1}")
+                else:
+                    # Только если нет — делаем предобработку
+                    res = self._preprocess_for_ocr(page_image, page_num=page_num+1)
+                    img_array = np.array(res['processed'])
+                    print(f"📊 Deskew: {res['deskew_angle']:.2f}°, Линий: {res['lines_detected']}")
                 
                 # EasyOCR
                 try:
@@ -662,12 +736,22 @@ class DrawingAppV2:
                         self.ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
                     
                     results = self.ocr_reader.readtext(
-                        img_array, detail=1, paragraph=False,
-                        allowlist='АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789№-.,=абвгдежзийклмнопрстуфхцчшщъыьэюяКПЛИСТФм#',
-                        width_ths=0.8, height_ths=0.8, low_text=0.3, text_threshold=0.7
+                        img_array, 
+                        detail=1, 
+                        paragraph=False,
+                        allowlist=' АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя0123456789№-.,=()«»"\'# ',
+                        width_ths=0.6, height_ths=0.6, low_text=0.35, text_threshold=0.65, mag_ratio=1.3
                     )
                     
-                    page_text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
+                    page_text = []
+                    for item in results:
+                        try:
+                            _, text, conf = item  # 3 значения
+                        except ValueError:
+                            bbox, (text, conf) = item  # 2 значения
+                        if conf > 0.45 and len(text.strip()) > 1:  # Фильтр мусора
+                            page_text.append(text.strip())
+                    page_text = '\n'.join(page_text)
                     all_text.append(f"--- Страница {page_num + 1} ---\n{page_text}")
                     
                 except Exception as ocr_err:
@@ -706,6 +790,149 @@ class DrawingAppV2:
         except Exception as e:
             self._rollback()
             messagebox.showerror("Ошибка OCR", str(e))
+    
+    
+    
+    #начало БЛОК РАСПОЗНАВАНИЯ В ОБЛАСТИ
+    def _recognition_area(self):
+        """Позволяет пользователю выделить область на чертеже для дальнейшего OCR."""
+        if not hasattr(self, "preprocessed_image"):
+            messagebox.showwarning("Внимание", "Сначала выполните предобработку!")
+            return
+
+        # Запоминаем старые события (для возврата)
+        self._old_pdf_mouse_down = self.pdf_canvas.bind("<Button-1>")
+        self._old_pdf_mouse_drag = self.pdf_canvas.bind("<B1-Motion>")
+        self._old_pdf_mouse_up = self.pdf_canvas.bind("<ButtonRelease-1>")
+
+        # 1. Снимаем старые события
+        self.pdf_canvas.unbind("<Button-1>")
+        self.pdf_canvas.unbind("<B1-Motion>")
+        self.pdf_canvas.unbind("<ButtonRelease-1>")
+
+        # 2. Ставим ROI-события
+        self.pdf_canvas.bind("<ButtonPress-1>", self._on_roi_start)
+        self.pdf_canvas.bind("<B1-Motion>", self._on_roi_drag)
+        self.pdf_canvas.bind("<ButtonRelease-1>", self._on_roi_end)
+        
+    
+    def _on_roi_start(self, event):
+        self.start_x = event.x
+        self.start_y = event.y
+        self.pdf_canvas.delete("roi_rect")
+        self.pdf_canvas.create_rectangle(
+            self.start_x, self.start_y, self.start_x, self.start_y,
+            outline="red", width=2, dash=(4, 2), tag="roi_rect"
+        )
+
+    def _on_roi_drag(self, event):
+        self.pdf_canvas.coords(
+            "roi_rect",
+            self.start_x, self.start_y,
+            event.x, event.y
+        )
+
+    def _on_roi_end(self, event):
+        # --- сначала всё то же самое (снимаем ROI, восстанавливаем drag, скрин делаем) ---
+
+        self.pdf_canvas.unbind("<ButtonPress-1>")
+        self.pdf_canvas.unbind("<B1-Motion>")
+        self.pdf_canvas.unbind("<ButtonRelease-1>")
+
+        if hasattr(self, "_old_pdf_mouse_down"):
+            self.pdf_canvas.bind("<Button-1>", self._old_pdf_mouse_down)
+        if hasattr(self, "_old_pdf_mouse_drag"):
+            self.pdf_canvas.bind("<B1-Motion>", self._old_pdf_mouse_drag)
+        if hasattr(self, "_old_pdf_mouse_up"):
+            self.pdf_canvas.bind("<ButtonRelease-1>", self._old_pdf_mouse_up)
+
+        x1, y1 = min(self.start_x, event.x), min(self.start_y, event.y)
+        x2, y2 = max(self.start_x, event.x), max(self.start_y, event.y)
+
+        x1_screen = self.pdf_canvas.winfo_rootx() + x1
+        y1_screen = self.pdf_canvas.winfo_rooty() + y1
+        x2_screen = self.pdf_canvas.winfo_rootx() + x2
+        y2_screen = self.pdf_canvas.winfo_rooty() + y2
+
+        pil_image = ImageGrab.grab(bbox=(x1_screen, y1_screen, x2_screen, y2_screen))
+        # ===================================
+
+        # OCR для этой области
+        extracted_text = self._ocr_single_image(pil_image)
+
+        if not extracted_text:
+            messagebox.showwarning("OCR", "Ничего не распознано в выделенной области")
+            return
+
+        # Показать результат в диалоговом окне
+        top = Toplevel(self.root)
+        top.title("Результат OCR для области")
+        top.geometry("700x500")
+
+        text_widget = Text(top, wrap="word")
+        text_widget.pack(fill="both", expand=True)
+
+        text_widget.insert("1.0", extracted_text)
+
+        # Копировать в буфер по хоткею
+        top.bind("<Control-c>", lambda e: self.root.clipboard_append(text_widget.get("1.0", "end-1c")))
+    
+    def _show_cropped_preview(self, pil_image):
+        """Открывает маленькое окно с предпросмотром обрезанного участка."""
+        top = Toplevel(self.root)
+        top.title("Область для OCR")
+        top.geometry("600x400")
+
+        # resize под размер окна, если нужно
+        max_w, max_h = 580, 380
+        w, h = pil_image.size
+        if w > max_w or h > max_h:
+            scale = min(max_w / w, max_h / h)
+            new_size = (int(w * scale), int(h * scale))
+            pil_image = pil_image.resize(new_size, Image.Resampling.LANCZOS)
+
+        tk_img = ImageTk.PhotoImage(pil_image)
+        lbl = Label(top, image=tk_img)
+        lbl.image = tk_img  # keep ref
+        lbl.pack(expand=True, fill="both")
+        
+        
+        
+        
+    def _ocr_single_image(self, pil_image):
+        """OCR для одного PIL.Image"""
+        if not OCR_AVAILABLE:
+            messagebox.showerror("Ошибка", "Не установлен OCR")
+            return ""
+
+        try:
+            img_array = np.array(pil_image.convert("L"))  # или "RGB"
+
+            if not self.ocr_reader:
+                import easyocr
+                self.ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
+
+            results = self.ocr_reader.readtext(
+                img_array,
+                detail=1,
+                paragraph=False,
+                allowlist=' АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя0123456789№-.,=()«»"\'# ',
+                width_ths=0.6,
+                height_ths=0.6,
+                low_text=0.35,
+                text_threshold=0.65,
+                mag_ratio=1.3
+            )
+
+            text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
+            return text
+
+        except Exception as e:
+            messagebox.showerror("Ошибка OCR", f"{e}")
+            return ""
+    
+    
+    #конец БЛОКА С РАСПОЗНАВАНИЕМ ПО ОБЛАСТИ
     
     def _create_pro_manual(self):
         """Создать PRO вручную"""
@@ -1218,41 +1445,74 @@ class DrawingAppV2:
         except Exception as e:
             messagebox.showerror("Ошибка загрузки PDF", str(e))
     
+    
     def _render_pdf_page(self):
         """Отрендерить текущую страницу PDF на холсте"""
         if not self.pdf_doc or self.total_pages == 0:
             return
-        
+
         try:
             # Получаем текущий масштаб
             try:
                 self.scale = float(self.scale_var.get())
             except:
                 self.scale = 1.0
-            
-            page = self.pdf_doc.load_page(self.current_page)
-            mat = fitz.Matrix(self.scale, self.scale)
-            pix = page.get_pixmap(matrix=mat)
-            img_data = pix.tobytes("ppm")
-            self.page_image = Image.open(io.BytesIO(img_data))
-            
-            # Конвертируем для Tkinter
-            self.tk_image = ImageTk.PhotoImage(self.page_image)
-            
-            # Очищаем и отображаем с учетом offset
+
+            # Решаем, что рисовать
+            if self.current_stage == 3 and hasattr(self, "preprocessed_image"):
+                # 1. Исходные размеры
+                w, h = self.preprocessed_image.size
+
+                # 2. Максимальные размеры для отображения
+                MAX_W, MAX_H = 2000, 2000  # под ваш экран
+
+                if w > MAX_W or h > MAX_H:
+                    scale = min(MAX_W / w, MAX_H / h)
+                    new_size = (int(w * scale), int(h * scale))
+                    pil_image = self.preprocessed_image.resize(new_size, Image.Resampling.LANCZOS)
+                else:
+                    pil_image = self.preprocessed_image.copy()  # безопасное копирование
+            else:
+                # ... остальная логика с fitz.Matrix(self.scale, self.scale) ...
+                page = self.pdf_doc.load_page(self.current_page)
+                mat = fitz.Matrix(self.scale, self.scale)
+                pix = page.get_pixmap(matrix=mat)
+                img_data = pix.tobytes("ppm")
+                pil_image = Image.open(io.BytesIO(img_data))
+
+            # 1. Запоминаем pil_image в self.page_image
+            self.page_image = pil_image   # <========= добавить эту строку
+
+            # 2. Конвертируем для Tkinter
+            self.tk_image = ImageTk.PhotoImage(pil_image)
+
+            # 3. Очищаем и отображаем с учётом offset
             self.pdf_canvas.delete("all")
-            canvas_width = self.pdf_canvas.winfo_width() or 500
-            canvas_height = self.pdf_canvas.winfo_height() or 500
-            
-            # Центр + offset
+
+            # SAFE: если winfo возвращает None, используем 500
+            try:
+                raw_w = self.pdf_canvas.winfo_width()
+                raw_h = self.pdf_canvas.winfo_height()
+            except:
+                raw_w = raw_h = 500
+
+            canvas_width = 500 if raw_w is None or not isinstance(raw_w, int) or raw_w <= 0 else raw_w
+            canvas_height = 500 if raw_h is None or not isinstance(raw_h, int) or raw_h <= 0 else raw_h
+
             center_x = canvas_width // 2 + self.pdf_offset_x
             center_y = canvas_height // 2 + self.pdf_offset_y
-            
-            self.pdf_canvas.create_image(center_x, center_y, 
-                                         image=self.tk_image, anchor=tk.CENTER)
-            
+
+            self.pdf_canvas.create_image(center_x, center_y,
+                                        image=self.tk_image, anchor=tk.CENTER)
+
+            # 4. сохраняем ссылку
+            self.pdf_canvas.image = self.tk_image
+
         except Exception as e:
             print(f"Ошибка рендеринга: {e}")
+            
+            
+            
     
     def _update_page_label(self):
         """Обновить label с номером страницы"""

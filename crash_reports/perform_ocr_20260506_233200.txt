@@ -1,0 +1,12 @@
+=== FULL TRACEBACK ===
+Traceback (most recent call last):
+  File "e:\1C_recognation\db_app_v2.py", line 498, in _run_preprocessing
+    result = self._do_preprocessing(self.page_image, page_num=actual_page_num, drawing_id=folder_name)
+  File "e:\1C_recognation\db_app_v2.py", line 523, in _do_preprocessing
+    if img_array.max() > 255 or img_array.min() < 0:
+       ^^^^^^^^^^^^^^^^^^^^^
+TypeError: '>' not supported between instances of 'NoneType' and 'int'
+
+
+=== ERROR MESSAGE ===
+'>' not supported between instances of 'NoneType' and 'int'

@@ -1,0 +1,19 @@
+=== FULL TRACEBACK ===
+Traceback (most recent call last):
+  File "e:\1C_recognation\db_app_v2.py", line 160, in _connect
+    self.conn = psycopg2.connect(
+                ~~~~~~~~~~~~~~~~^
+        host=self.db_host.get(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        password=self.db_pass.get()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\YoungProger\python\Lib\site-packages\psycopg2\__init__.py", line 135, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc2 in position 61: invalid continuation byte
+
+
+=== ERROR MESSAGE ===
+'utf-8' codec can't decode byte 0xc2 in position 61: invalid continuation byte
