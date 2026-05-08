@@ -75,9 +75,3 @@ def preprocess_for_ocr(pil_image, page_num=1, save_files=True, debug=True):
         'lines_detected': lines_count,
         'mean_intensity': np.mean(cleaned)
     }
-
-# Тест (опционально)
-if __name__ == "__main__":
-    dummy = Image.new('RGB', (800, 600))
-    result = preprocess_for_ocr(dummy, page_num=999, save_files=True)
-    print("✅ Модуль готов:", result['processed'].size)
