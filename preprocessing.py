@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from PIL import Image
-import os
 
 def preprocess_for_ocr(pil_image, page_num=1, save_files=True, debug=True):
     """
@@ -17,7 +16,18 @@ def preprocess_for_ocr(pil_image, page_num=1, save_files=True, debug=True):
         'lines_detected': кол-во линий Hough
     }
     """
-    img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    img_array = np.array(pil_image)
+    if img_array.dtype != np.uint8:
+        if img_array.max() > 255 or img_array.min() < 0:
+            img_array = cv2.normalize(img_array, None, 0, 255, cv2.NORM_MINMAX)
+        img_array = img_array.astype(np.uint8)
+
+    if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+        img = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
+    elif len(img_array.shape) == 3:
+        img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+    else:
+        img = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     

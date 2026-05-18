@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+crash_reports/
+
+presentation_assets/
+demo_preprocessing_test_*/
+demo_preprocessing_test_*_clean/
+
+gost_ocr/data/generated/
+gost_ocr/data/stamp_generated*/
+gost_ocr/data/*corpus/
+gost_ocr/data/real_labeled/images/
+gost_ocr/data/real_label_review_sheet.jpg

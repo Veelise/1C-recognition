@@ -1,0 +1,847 @@
+[
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_001.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      0,
+      7,
+      4848,
+      79
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_002.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      693,
+      59,
+      80,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_003.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      938,
+      62,
+      48,
+      17
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_004.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1537,
+      64,
+      115,
+      19
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_005.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      411,
+      71,
+      42,
+      13
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_006.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      167,
+      78,
+      48,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_007.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      629,
+      93,
+      71,
+      14
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_008.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      2698,
+      97,
+      68,
+      11
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_009.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      535,
+      112,
+      173,
+      21
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_010.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1291,
+      114,
+      75,
+      20
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_011.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3258,
+      115,
+      110,
+      15
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_012.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      990,
+      121,
+      48,
+      13
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_013.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3174,
+      122,
+      79,
+      13
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_014.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      295,
+      123,
+      72,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_015.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      511,
+      124,
+      318,
+      61
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_016.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1266,
+      137,
+      137,
+      20
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_017.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4792,
+      137,
+      56,
+      18
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_018.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      268,
+      138,
+      215,
+      19
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_019.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3750,
+      138,
+      1107,
+      89
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_020.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4167,
+      138,
+      114,
+      21
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_021.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3172,
+      139,
+      49,
+      11
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_022.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4433,
+      140,
+      181,
+      19
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_023.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      2532,
+      141,
+      228,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_024.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      2805,
+      144,
+      177,
+      15
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_025.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      406,
+      147,
+      86,
+      11
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_026.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1640,
+      147,
+      103,
+      11
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_027.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1794,
+      162,
+      222,
+      12
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_028.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3543,
+      162,
+      73,
+      15
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_029.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1267,
+      163,
+      249,
+      21
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_030.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      244,
+      169,
+      162,
+      14
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_031.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      442,
+      170,
+      71,
+      11
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_032.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1811,
+      170,
+      148,
+      14
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_033.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      508,
+      186,
+      210,
+      23
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_034.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      783,
+      187,
+      69,
+      14
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_035.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1108,
+      187,
+      124,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_036.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1377,
+      187,
+      157,
+      23
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_037.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3608,
+      187,
+      91,
+      32
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_038.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      965,
+      188,
+      121,
+      21
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_039.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1270,
+      188,
+      125,
+      21
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_040.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1633,
+      189,
+      69,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_041.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3702,
+      190,
+      80,
+      18
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_042.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      401,
+      196,
+      106,
+      12
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_043.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4791,
+      199,
+      49,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_044.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4809,
+      204,
+      50,
+      19
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_045.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1552,
+      211,
+      213,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_046.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4134,
+      211,
+      673,
+      48
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_047.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      743,
+      212,
+      131,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_048.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      921,
+      212,
+      145,
+      23
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_049.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1109,
+      212,
+      122,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_050.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3555,
+      215,
+      113,
+      18
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_051.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3961,
+      233,
+      182,
+      16
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_052.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4524,
+      236,
+      54,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_053.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4068,
+      248,
+      77,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_054.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3523,
+      268,
+      60,
+      10
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_055.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      1547,
+      286,
+      249,
+      23
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_056.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      117,
+      2279,
+      50,
+      12
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_057.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      83,
+      2451,
+      47,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_058.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      85,
+      2566,
+      75,
+      24
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_059.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      119,
+      2606,
+      44,
+      11
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_060.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4507,
+      2821,
+      144,
+      20
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_061.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3399,
+      2868,
+      262,
+      26
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_062.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3661,
+      2868,
+      144,
+      27
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_063.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3871,
+      2879,
+      105,
+      13
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_064.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      3803,
+      2993,
+      224,
+      22
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  },
+  {
+    "image": "images/0491-КЖ6 (1)_page_003_line_065.png",
+    "text": "",
+    "source": "0491-КЖ6 (1)_page_003",
+    "bbox": [
+      4043,
+      3042,
+      125,
+      23
+    ],
+    "autolabel_backend": "easyocr",
+    "autolabel_lines": []
+  }
+]

@@ -13,6 +13,8 @@ import numpy as np
 import cv2
 from PIL import Image, ImageGrab
 import re, traceback
+from ocr_backend import OCRBackend
+from preprocessing import preprocess_for_ocr
 
 # Попытка импорта библиотек для OCR
 try:
@@ -106,6 +108,7 @@ class DrawingAppV2:
         self.page_image = None    # это нормально
         self.scale = 2.0
         self.ocr_reader = None
+        self.ocr_backend = OCRBackend(gpu=False)
         
         self._create_connection_ui()
     
@@ -512,78 +515,15 @@ class DrawingAppV2:
     
     def _do_preprocessing(self, pil_image, page_num=1, drawing_id="folder_name"):
         """Выполнение предобработки"""
-        
-        # 1. Принудительное приведение к 8-битному массиву (ИСПРАВЛЕНИЕ ОШИБКИ)
-        img_array = np.array(pil_image)
-        if img_array.dtype != np.uint8:
-            # Если данные выходят за пределы 0-255, нормализуем их
-            if img_array.max() > 255 or img_array.min() < 0:
-                img_array = cv2.normalize(img_array, None, 0, 255, cv2.NORM_MINMAX)
-            img_array = img_array.astype(np.uint8)
-
-        # 2. Определение цветового пространства и конвертация
-        # Проверяем, есть ли альфа-канал (RGBA), чтобы не было проблем с 3 vs 4 каналами
-        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
-            img = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
-        elif len(img_array.shape) == 3:
-            img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-        else:
-            # Если изображение уже в оттенках серого (2D массив)
-            img = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        h, w = gray.shape
-        
-        # 1. Резкость + CLAHE + denoise
-        gaussian = cv2.GaussianBlur(gray, (0, 0), 1.0)
-        sharpened = cv2.addWeighted(gray, 1.5, gaussian, -0.5, 0)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-        enhanced = clahe.apply(sharpened)
-        denoised = cv2.medianBlur(enhanced, 3)
-        
-        temp_img = Image.fromarray(denoised)
-        
-        # 2. Deskew
-        edges = cv2.Canny(denoised, 50, 150, apertureSize=3)
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=w//15, maxLineGap=15)
-        angles = []
-        lines_count = len(lines) if lines is not None else 0
-        
-        if lines is not None:
-            for line in lines[:30]:
-                x1, y1, x2, y2 = line[0]
-                angle = np.degrees(np.arctan2(y2-y1, x2-x1))
-                if 0.5 < abs(angle) < 45:
-                    angles.append(angle)
-        
-        deskew_angle = np.median(angles) if angles else 0
-        if abs(deskew_angle) > 0.3:
-            center = (w//2, h//2)
-            M = cv2.getRotationMatrix2D(center, deskew_angle, 1.0)
-            denoised = cv2.warpAffine(denoised, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-        
-        # 3. УСИЛЕННАЯ МОРФОЛОГИЯ (для сплошных букв)
-
-        # Уплотняем штрихи
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        cleaned = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, kernel)
-        cleaned = cv2.dilate(cleaned, kernel, iterations=1)
-
-        # Adaptive threshold с чуть более мягким порогом
-        binary = cv2.adaptiveThreshold(
-            cleaned,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            21, 1
+        result = preprocess_for_ocr(
+            pil_image,
+            page_num=page_num,
+            save_files=False,
+            debug=False,
         )
 
-        if np.mean(cleaned) < 127:
-            binary = cv2.bitwise_not(binary)
-            
-                      
         base_dir = os.path.join(f"drawing_{drawing_id}", f"page_{page_num}")
-        
+
         # Создаем вложенные папки (Уровень 3-4)
         path_cleared = os.path.join(base_dir, "cleared_page")
         path_temp = os.path.join(base_dir, "temp_page")
@@ -593,17 +533,12 @@ class DrawingAppV2:
         # Полные пути к файлам
         cleared_path = os.path.join(path_cleared, f"page_{page_num}_cleared.jpg")
         temp_path = os.path.join(path_temp, f"page_{page_num}_temp.jpg")
-        
+
         # Сохранение (Image - объект PIL)
-        Image.fromarray(binary).save(cleared_path)
-        temp_img.save(temp_path)            
-        
-        return {
-            'processed': Image.fromarray(binary),
-            'temp': temp_img,
-            'deskew_angle': deskew_angle,
-            'lines_detected': lines_count
-        }
+        result["cleared"].save(cleared_path)
+        result["temp"].save(temp_path)
+
+        return result
             
        
     
@@ -682,7 +617,11 @@ class DrawingAppV2:
             return
         
         if not OCR_AVAILABLE:
-            messagebox.showerror("Ошибка", "Установите: pip install PyMuPDF Pillow opencv-python numpy easyocr")
+            messagebox.showerror(
+                "Ошибка",
+                "Не хватает библиотек для OCR. Установите: "
+                "pip install PyMuPDF Pillow opencv-python numpy"
+            )
             return
         
         drawing_id = self.list_tree.item(selected[0])['values'][0]
@@ -725,33 +664,18 @@ class DrawingAppV2:
                     print(f"✅ Используем готовую предобработку для стр. {page_num+1}")
                 else:
                     # Только если нет — делаем предобработку
-                    res = self._preprocess_for_ocr(page_image, page_num=page_num+1)
+                    res = self._do_preprocessing(
+                        page_image,
+                        page_num=page_num + 1,
+                        drawing_id=str(drawing_id),
+                    )
                     img_array = np.array(res['processed'])
                     print(f"📊 Deskew: {res['deskew_angle']:.2f}°, Линий: {res['lines_detected']}")
                 
                 # EasyOCR
                 try:
-                    import easyocr
-                    if not self.ocr_reader:
-                        self.ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
-                    
-                    results = self.ocr_reader.readtext(
-                        img_array, 
-                        detail=1, 
-                        paragraph=False,
-                        allowlist=' АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя0123456789№-.,=()«»"\'# ',
-                        width_ths=0.6, height_ths=0.6, low_text=0.35, text_threshold=0.65, mag_ratio=1.3
-                    )
-                    
-                    page_text = []
-                    for item in results:
-                        try:
-                            _, text, conf = item  # 3 значения
-                        except ValueError:
-                            bbox, (text, conf) = item  # 2 значения
-                        if conf > 0.45 and len(text.strip()) > 1:  # Фильтр мусора
-                            page_text.append(text.strip())
-                    page_text = '\n'.join(page_text)
+                    ocr_result = self.ocr_backend.recognize(Image.fromarray(img_array))
+                    page_text = ocr_result.text
                     all_text.append(f"--- Страница {page_num + 1} ---\n{page_text}")
                     
                 except Exception as ocr_err:
@@ -902,30 +826,16 @@ class DrawingAppV2:
     def _ocr_single_image(self, pil_image):
         """OCR для одного PIL.Image"""
         if not OCR_AVAILABLE:
-            messagebox.showerror("Ошибка", "Не установлен OCR")
+            messagebox.showerror(
+                "Ошибка",
+                "Не хватает библиотек для OCR. Установите: "
+                "pip install PyMuPDF Pillow opencv-python numpy"
+            )
             return ""
 
         try:
-            img_array = np.array(pil_image.convert("L"))  # или "RGB"
-
-            if not self.ocr_reader:
-                import easyocr
-                self.ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
-
-            results = self.ocr_reader.readtext(
-                img_array,
-                detail=1,
-                paragraph=False,
-                allowlist=' АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя0123456789№-.,=()«»"\'# ',
-                width_ths=0.6,
-                height_ths=0.6,
-                low_text=0.35,
-                text_threshold=0.65,
-                mag_ratio=1.3
-            )
-
-            text = '\n'.join([text.strip() for _, text, conf in results if conf > 0.4])
-            return text
+            ocr_result = self.ocr_backend.recognize(pil_image.convert("L"))
+            return ocr_result.text
 
         except Exception as e:
             messagebox.showerror("Ошибка OCR", f"{e}")
